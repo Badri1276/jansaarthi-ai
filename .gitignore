@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+backend/.profile.key
+backend/gemini-language-evaluation.json
+.env.*
+!.env.example
+node_modules/
+.venv/
+__pycache__/
+*.db
+dist/
+backend/.venv/
+backend/__pycache__/
+backend/*.db
+build/
+uploads/
+
+# Additional local and generated files
+*.log
+.env.local
+.env.production
+.vscode/
+.DS_Store
