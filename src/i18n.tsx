@@ -309,7 +309,7 @@ function phraseTranslation(value: string, language: Language): string {
       quota_or_rate_limit: { hi: 'कोटा या अनुरोध सीमा पूरी हुई', te: 'కోటా లేదా అభ్యర్థన పరిమితి చేరింది' },
       provider_timeout: { hi: 'सेवा से उत्तर मिलने में समय लगा', te: 'సేవ స్పందనకు సమయం మించిపోయింది' },
     };
-    const detail = errors[fallback[1]]?.[language === 'हिन्दी' ? 'hi' : 'te'] ?? fallback[1].replaceAll('_', ' ');
+    const detail = errors[fallback[1]]?.[language === 'हिन्दी' ? 'hi' : 'te'] ?? fallback[1].replace(/_/g, ' ');
     return `${language === 'हिन्दी' ? 'योजना सूची से उत्तर' : 'పథక జాబితా ఆధారిత సమాధానం'} (${detail}).`;
   }
   return value;
