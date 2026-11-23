@@ -341,12 +341,62 @@ def retrieve_schemes(message: str, profile: dict[str, Any]) -> list[dict[str, An
     return [scheme for score, scheme in ranked[:3] if score > 0]
 
 
-def fallback_answer(language: str, relevant: list[dict[str, Any]]) -> str:
+ELIGIBILITY_INTENT_TERMS = (
+    "eligibility", "eligible", "qualify", "qualified", "am i eligible", "can i apply", "do i qualify", "criteria",
+    "पात्रता", "पात्र हूं", "योग्य", "अर्हత", "అర్హుడా", "అర్హత", "వర్తిస్తుందా",
+)
+SCHEME_INTENT_TERMS = (
+    "scheme", "government benefit", "government support", "benefits", "documents", "required papers",
+    "pm-kisan", "pm kisan", "pmjay", "ayushman", "pmmvy", "pmjdy", "jan dhan",
+    "योजना", "सरकारी सहायता", "सरकारी योजना", "लाभ", "दस्तावेज", "योजना के लिए",
+    "పథకం", "పథకాలు", "ప్రభుత్వ పథకం", "ప్రయోజనాలు", "పత్రాలు",
+)
+GREETING_PATTERN = re.compile(
+    r"^(?:hi|hello|hey|good morning|good afternoon|good evening|how are you|how's it going|thanks|thank you|"
+    r"नमस्ते|नमस्कार|हाय|शुक्रिया|धन्यवाद|"
+    r"నమస్కారం|హలో|హాయ్|ధన్యవాదాలు)[!.?,\s]*$",
+    re.IGNORECASE,
+)
+FOLLOW_UP_TERMS = (
+    "what about", "tell me more", "more details", "and documents", "which documents", "required documents", "am i eligible", "can i apply",
+    "इसके बारे में", "इसके लिए", "क्या मैं इसके लिए", "और जानकारी", "कौन से दस्तावेज", "దీని గురించి", "దీనికి", "నేను దీనికి అర్హ", "మరిన్ని వివరాలు", "ఏ పత్రాలు",
+)
+
+
+def classify_chat_intent(message: str, relevant: list[dict[str, Any]], previous_scheme_ids: list[str]) -> str:
+    normalized = message.lower().strip()
+    if any(term in normalized for term in ELIGIBILITY_INTENT_TERMS):
+        return "eligibility"
+    if relevant or any(term in normalized for term in SCHEME_INTENT_TERMS):
+        return "scheme"
+    if GREETING_PATTERN.fullmatch(normalized):
+        return "greeting"
+    if previous_scheme_ids and any(term in normalized for term in FOLLOW_UP_TERMS):
+        return "scheme"
+    return "general"
+
+
+def fallback_answer(language: str, relevant: list[dict[str, Any]], intent: str = "scheme") -> str:
+    if intent == "greeting":
+        return {
+            "हिन्दी": "नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ? आप योजनाओं, पात्रता या दस्तावेज़ों के बारे में पूछ सकते हैं।",
+            "తెలుగు": "నమస్కారం! నేను మీకు ఎలా సహాయపడగలను? పథకాలు, అర్హత లేదా పత్రాల గురించి అడగండి.",
+        }.get(language, "Hello! How can I help? You can ask me about schemes, eligibility or documents.")
+    if intent == "general":
+        return {
+            "हिन्दी": "मैं अभी जवाब देने में थोड़ी देर कर रहा हूँ। आप योजनाओं, पात्रता या दस्तावेज़ों के बारे में पूछ सकते हैं।",
+            "తెలుగు": "ఇప్పుడే సమాధానం ఇవ్వడంలో కొంత ఇబ్బంది ఉంది. పథకాలు, అర్హత లేదా పత్రాల గురించి అడగండి.",
+        }.get(language, "I’m having trouble responding right now. You can ask me about schemes, eligibility or documents, and I’ll help where I can.")
+    if intent == "eligibility" and not relevant:
+        return {
+            "हिन्दी": "कृपया योजना का नाम बताएं। मैं आपकी साझा की गई जानकारी को उपलब्ध पात्रता मानदंडों से मिलाकर बताऊँगा कि क्या जाँचा गया है और क्या अभी बाकी है।",
+            "తెలుగు": "దయచేసి పథకం పేరు చెప్పండి. మీరు పంచుకున్న వివరాలను అందుబాటులో ఉన్న అర్హత ప్రమాణాలతో పోల్చి, ఏమి పరిశీలించామో ఇంకా ఏమి కావాలో చెబుతాను.",
+        }.get(language, "Please tell me the scheme name. I can compare the details you share with the available criteria and explain what is checked and what is still missing.")
     if not relevant:
         return {
-            "हिन्दी": "मुझे इस संदेश के लिए हमारे सीमित योजना-संग्रह में मेल नहीं मिला। कृपया योजना का नाम या अपनी ज़रूरत (किसान सहायता, मातृत्व, स्वास्थ्य या बैंक खाता) बताएं। पूरी जानकारी के लिए आधिकारिक सरकारी पोर्टल देखें।",
-            "తెలుగు": "మీ ప్రశ్నకు మా పరిమిత పథకాల జాబితాలో సరిపోలిక దొరకలేదు. పథకం పేరు లేదా మీ అవసరాన్ని (రైతు సహాయం, ప్రసూతి, ఆరోగ్యం లేదా బ్యాంకు ఖాతా) చెప్పండి. పూర్తి వివరాలకు అధికారిక ప్రభుత్వ వెబ్‌సైట్‌ను చూడండి.",
-        }.get(language, "I couldn't find a match in this small catalog. Tell me a scheme name or whether you need farmer support, maternity benefits, health cover or a basic bank account. Please verify details on an official government portal.")
+            "हिन्दी": "यहाँ उपलब्ध योजना जानकारी में मुझे अभी मेल नहीं मिला। योजना का नाम या अपनी ज़रूरत—किसान सहायता, मातृत्व, स्वास्थ्य या बैंक खाता—बताएं।",
+            "తెలుగు": "ఇక్కడ అందుబాటులో ఉన్న పథక సమాచారంలో సరిపోలిక దొరకలేదు. పథకం పేరు లేదా మీ అవసరం—రైతు సహాయం, ప్రసూతి, ఆరోగ్యం లేదా బ్యాంకు ఖాతా—చెప్పండి.",
+        }.get(language, "I couldn’t find a match in the scheme information available here. Tell me a scheme name or whether you need farmer support, maternity benefits, health cover or a bank account.")
     scheme = relevant[0]
     label = scheme["name"]
     if language == "हिन्दी":
@@ -372,6 +422,28 @@ AI_REQUESTS: dict[str, list[float]] = {}
 AI_REQUESTS_LOCK = threading.Lock()
 AI_RATE_LIMIT = 12
 AI_RATE_WINDOW_SECONDS = 60
+AI_CONVERSATIONS: dict[str, dict[str, Any]] = {}
+AI_CONVERSATIONS_LOCK = threading.Lock()
+MAX_AI_CONVERSATIONS = 500
+
+
+def get_chat_context(citizen_id: str) -> tuple[list[dict[str, str]], list[str]]:
+    with AI_CONVERSATIONS_LOCK:
+        conversation = AI_CONVERSATIONS.get(citizen_id, {})
+        return list(conversation.get("messages", [])), list(conversation.get("scheme_ids", []))
+
+
+def save_chat_turn(citizen_id: str, messages: list[dict[str, str]], scheme_ids: list[str], question: str, answer: str) -> None:
+    with AI_CONVERSATIONS_LOCK:
+        AI_CONVERSATIONS[citizen_id] = {
+            "messages": (messages + [
+                {"role": "user", "text": redact_sensitive(question)[:2000]},
+                {"role": "assistant", "text": redact_sensitive(answer)[:3000]},
+            ])[-8:],
+            "scheme_ids": scheme_ids[-3:],
+        }
+        while len(AI_CONVERSATIONS) > MAX_AI_CONVERSATIONS:
+            AI_CONVERSATIONS.pop(next(iter(AI_CONVERSATIONS)))
 
 
 def enforce_ai_rate_limit(citizen_id: str) -> None:
@@ -384,9 +456,13 @@ def enforce_ai_rate_limit(citizen_id: str) -> None:
         AI_REQUESTS[citizen_id] = recent
 
 
-def call_gemini(payload: ChatIn, relevant: list[dict[str, Any]], eligibility: dict[str, dict[str, Any]]) -> tuple[dict[str, Any] | None, str | None]:
-    if not relevant:
-        return None, "no_retrieved_scheme_context"
+def call_gemini(
+    payload: ChatIn,
+    relevant: list[dict[str, Any]],
+    eligibility: dict[str, dict[str, Any]],
+    intent: str,
+    conversation: list[dict[str, str]],
+) -> tuple[dict[str, Any] | None, str | None]:
     context = []
     for scheme in relevant:
         context.append({
@@ -395,16 +471,22 @@ def call_gemini(payload: ChatIn, relevant: list[dict[str, Any]], eligibility: di
             "eligibility_rules": scheme["eligibility_rules"], "required_documents": scheme["required_documents"],
             "official_source_url": scheme["official_source_url"], "deterministic_eligibility_result": eligibility[scheme["id"]],
         })
-    safe_profile = {k: payload.profile.get(k) for k in ("age", "state", "occupation", "annual_income", "family_category", "maternity_status", "children_count", "eligibility_categories", "has_existing_bank_account") if payload.profile.get(k) is not None}
+    safe_profile = {k: payload.profile.get(k) for k in ("age", "state", "occupation", "annual_income", "family_category", "maternity_status", "children_count", "eligibility_categories", "has_existing_bank_account") if payload.profile.get(k) is not None} if intent == "eligibility" else {}
     system = (
         "You are JanSaarthi AI, an Indian government-scheme information assistant. "
-        "Reply only in the requested language (English, Telugu or Hindi). Use only the supplied official scheme records. "
+        "Reply only in the requested language (English, Telugu or Hindi). Be warm, natural and concise. "
+        "For greetings and general conversation, respond naturally without forcing a scheme recommendation. For non-scheme questions, you may use general knowledge. "
+        "For government-scheme facts, use only the supplied official scheme records; if none are supplied, say that this catalogue does not contain enough information and ask a useful follow-up. Never guess scheme names, benefits, requirements, links or rules. "
         "The deterministic_eligibility_result is authoritative: never change its status, invent criteria, or override satisfied, failed or missing checks. "
         "Explain the supplied engine result in simple language, mention uncertainty, and do not guarantee approval. "
         "Never request, repeat or expose Aadhaar, OTP, password, bank-account number or credentials. "
-        "Return JSON matching the requested schema. Recommend only supplied scheme IDs."
+        "Return JSON matching the requested schema. Recommend only supplied scheme IDs; return an empty recommendations list for greetings and general questions."
     )
-    user_payload = {"language": payload.language, "question": redact_sensitive(payload.message), "profile": safe_profile, "retrieved_schemes": context}
+    user_payload = {
+        "language": payload.language, "intent": intent,
+        "question": redact_sensitive(payload.message), "conversation_context": conversation,
+        "profile": safe_profile, "retrieved_schemes": context,
+    }
     try:
         timeout = min(max(float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20")), 3.0), 45.0)
     except ValueError:
@@ -416,10 +498,16 @@ def call_gemini(payload: ChatIn, relevant: list[dict[str, Any]], eligibility: di
 def assistant_chat(payload: ChatIn, request: APIRequest) -> dict[str, Any]:
     citizen_id = current_citizen(request)
     enforce_ai_rate_limit(citizen_id)
+    conversation, previous_scheme_ids = get_chat_context(citizen_id)
     relevant = retrieve_schemes(payload.message, payload.profile)
+    intent = classify_chat_intent(payload.message, relevant, previous_scheme_ids)
+    is_contextual_follow_up = any(term in payload.message.lower() for term in FOLLOW_UP_TERMS)
+    if intent in {"scheme", "eligibility"} and not relevant and previous_scheme_ids and is_contextual_follow_up:
+        relevant = [scheme for scheme in SCHEMES if scheme["id"] in previous_scheme_ids]
     engine_results = {s["id"]: check_eligibility(EligibilityIn(scheme_id=s["id"], profile=payload.profile)) for s in relevant}
-    generated, provider_error = call_gemini(payload, relevant, engine_results)
-    answer = generated["answer"] if generated else fallback_answer(payload.language, relevant)
+    generated, provider_error = call_gemini(payload, relevant, engine_results, intent, conversation)
+    answer = generated["answer"] if generated else fallback_answer(payload.language, relevant, intent)
+    save_chat_turn(citizen_id, conversation, [scheme["id"] for scheme in relevant] or previous_scheme_ids, payload.message, answer)
     generated_recommendations = {item.get("scheme_id"): item for item in (generated or {}).get("recommendations", []) if isinstance(item, dict)}
     recommendations = []
     for scheme in relevant:

@@ -265,6 +265,7 @@ const translations: Record<string, Translation> = {
   'Complete your profile to get a more tailored starting point.': { hi: 'अधिक उपयुक्त सुझाव पाने के लिए प्रोफ़ाइल पूरी करें।', te: 'మరింత అనుకూలమైన సూచనలు పొందేందుకు ప్రొఫైల్‌ను పూర్తి చేయండి.' },
   'Set up profile': { hi: 'प्रोफ़ाइल बनाएँ', te: 'ప్రొఫైల్‌ను ఏర్పాటు చేయండి' },
   'Catalog fallback': { hi: 'योजना सूची से उत्तर', te: 'పథక జాబితా ఆధారిత సమాధానం' },
+  'The AI assistant is temporarily unavailable. I am using the scheme information available here.': { hi: 'AI सहायक अभी उपलब्ध नहीं है। मैं यहाँ उपलब्ध योजना की जानकारी से आपकी मदद कर रहा हूँ।', te: 'AI సహాయకుడు ప్రస్తుతం అందుబాటులో లేరు. ఇక్కడ ఉన్న పథక సమాచారంతో సహాయం చేస్తున్నాను.' },
   'Criterion:': { hi: 'मानदंड:', te: 'ప్రమాణం:' },
   'Still needed:': { hi: 'अभी आवश्यक:', te: 'ఇంకా అవసరమైనవి:' },
   'File:': { hi: 'फ़ाइल:', te: 'ఫైల్:' },
